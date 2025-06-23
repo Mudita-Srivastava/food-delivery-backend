@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       Int        @id @default(autoincrement())
+  name     String     @default("user")
+  email    String     @unique
+  password String
+  role     String     @default("customer") // or "admin"
+  orders   Order[]
+  CartItem CartItem[]
+}
+
+model Restaurant {
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String?
+  image       String?
+  foods       Food[]
+}
+
+model Food {
+  id           Int        @id @default(autoincrement())
+  name         String
+  description  String?
+  price        Float
+  image        String?
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  orders       Order[]
+  CartItem     CartItem[]
+}
+
+model Order {
+  id                Int              @id @default(autoincrement())
+  userId            Int
+  user              User             @relation(fields: [userId], references: [id])
+  foodId            Int
+  food              Food             @relation(fields: [foodId], references: [id])
+  quantity          Int
+  totalPrice        Float?
+  status            String           @default("pending")
+  createdAt         DateTime         @default(now())
+  DeliveryPartner   DeliveryPartner? @relation(fields: [deliveryPartnerId], references: [id])
+  deliveryPartnerId Int?
+}
+
+model CartItem {
+  id       Int  @id @default(autoincrement())
+  userId   Int
+  foodId   Int
+  quantity Int  @default(1)
+  user     User @relation(fields: [userId], references: [id])
+  food     Food @relation(fields: [foodId], references: [id])
+}
+
+model DeliveryPartner {
+  id       Int     @id @default(autoincrement())
+  name     String
+  email    String  @unique
+  password String
+  phone    String?
+  orders   Order[]
+}
