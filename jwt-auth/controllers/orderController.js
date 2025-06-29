@@ -3,24 +3,44 @@ const prisma = new PrismaClient();
 
 // Place an order
 const placeOrder = async (req, res) => {
-  const { foodId, quantity } = req.body;
+  const { items } = req.body;
   const userId = req.user.id; // set by verifyToken middleware
 
   try {
-    const food = await prisma.food.findUnique({
-      where: { id: parseInt(foodId) },
-    });
-    if (!food) return res.status(404).json({ error: "Food not found" });
-    const totalPrice = food.price * parseInt(quantity);
+    //create an empty order
     const order = await prisma.order.create({
-      data: {
-        userId,
-        foodId: parseInt(foodId),
-        quantity: parseInt(quantity),
-      },
+      data: { userId },
     });
 
-    res.status(201).json({ message: "Order placed", order, totalPrice });
+    let totalPrice = 0;
+    // 2. Create OrderItems + calculate totalPrice
+    for (const item of items) {
+      const food = await prisma.food.findUnique({
+        where: { id: item.foodId },
+      });
+
+      if (!food) continue; // skip invalid items
+
+      totalPrice += food.price * item.quantity;
+
+      await prisma.orderItem.create({
+        data: {
+          orderId: order.id,
+          foodId: item.foodId,
+          quantity: item.quantity,
+        },
+      });
+    }
+
+    // 3. Update order with totalPrice
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { totalPrice },
+    });
+
+    res
+      .status(201)
+      .json({ message: "Order placed", orderId: order.id, totalPrice });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -32,7 +52,13 @@ const getAllOrders = async (req, res) => {
     const orders = await prisma.order.findMany({
       include: {
         user: true,
-        food: { include: { restaurant: true } },
+        items: {
+          include: {
+            food: {
+              include: { restaurant: true },
+            },
+          },
+        },
       },
     });
     res.json(orders);
@@ -49,11 +75,15 @@ const getMyOrders = async (req, res) => {
       where: { userId },
       orderBy: { createdAt: "desc" },
       include: {
-        food: {
-          select: {
-            name: true,
-            image: true,
-            price: true,
+        items: {
+          include: {
+            food: {
+              select: {
+                name: true,
+                image: true,
+                price: true,
+              },
+            },
           },
         },
       },
@@ -81,11 +111,9 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
-
-
 export default {
   placeOrder,
   getAllOrders,
   getMyOrders,
-  updateOrderStatus
+  updateOrderStatus,
 };

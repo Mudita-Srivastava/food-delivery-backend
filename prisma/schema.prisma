@@ -26,29 +26,38 @@ model Restaurant {
 }
 
 model Food {
-  id           Int        @id @default(autoincrement())
+  id           Int         @id @default(autoincrement())
   name         String
   description  String?
   price        Float
   image        String?
   restaurantId Int
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
-  orders       Order[]
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id])
   CartItem     CartItem[]
+  OrderItem    OrderItem[]
+}
+
+model OrderItem {
+  id       Int @id @default(autoincrement())
+  orderId  Int
+  foodId   Int
+  quantity Int
+
+  order Order @relation(fields: [orderId], references: [id])
+  food  Food  @relation(fields: [foodId], references: [id])
 }
 
 model Order {
   id                Int              @id @default(autoincrement())
   userId            Int
   user              User             @relation(fields: [userId], references: [id])
-  foodId            Int
-  food              Food             @relation(fields: [foodId], references: [id])
-  quantity          Int
   totalPrice        Float?
   status            String           @default("pending")
   createdAt         DateTime         @default(now())
-  DeliveryPartner   DeliveryPartner? @relation(fields: [deliveryPartnerId], references: [id])
   deliveryPartnerId Int?
+  DeliveryPartner   DeliveryPartner? @relation(fields: [deliveryPartnerId], references: [id])
+  items             OrderItem[] // ✅ NEW
+  Payment           Payment[]
 }
 
 model CartItem {
@@ -67,4 +76,16 @@ model DeliveryPartner {
   password String
   phone    String?
   orders   Order[]
+}
+
+model Payment {
+  id                Int      @id @default(autoincrement())
+  razorpayOrderId   String
+  razorpayPaymentId String
+  signature         String
+  amount            Float
+  status            String   @default("success")
+  createdAt         DateTime @default(now())
+  order             Order    @relation(fields: [orderId], references: [id])
+  orderId           Int
 }

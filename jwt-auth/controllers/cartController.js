@@ -73,31 +73,55 @@ const checkoutCart = async (req, res) => {
   try {
     const cartItems = await prisma.cartItem.findMany({
       where: { userId },
+      include: { food: true },
     });
 
     if (cartItems.length === 0) {
       return res.status(400).json({ error: "Your cart is empty" });
     }
 
-    // Create orders for each cart item
-    const orders = await Promise.all(
-      cartItems.map((item) =>
-        prisma.order.create({
-          data: {
-            userId,
-            foodId: item.foodId,
-            quantity: item.quantity,
-            status: "pending",
-          },
-        })
-      )
-    );
+    // 1. Create the order
+    const order = await prisma.order.create({
+      data: {
+        userId,
+        status: "pending",
+      },
+    });
 
-    // Clear the cart after order
-    await prisma.cartItem.deleteMany({ where: { userId } });
+    // 2. Create OrderItems and calculate total price
+    let totalPrice = 0;
 
-    res.status(201).json({ message: "Order placed successfully", orders });
+    for (const item of cartItems) {
+      const itemTotal = item.quantity * item.food.price;
+      totalPrice += itemTotal;
+
+      await prisma.orderItem.create({
+        data: {
+          orderId: order.id,
+          foodId: item.foodId,
+          quantity: item.quantity,
+        },
+      });
+    }
+
+    // 3. Update total price in Order
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { totalPrice },
+    });
+
+    // 4. Clear cart
+    await prisma.cartItem.deleteMany({
+      where: { userId },
+    });
+
+    res.status(201).json({
+      message: "Order placed successfully",
+      orderId: order.id,
+      totalPrice,
+    });
   } catch (error) {
+    console.error("Checkout Error:", error);
     res.status(500).json({ error: "Failed to place order" });
   }
 };
