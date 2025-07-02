@@ -7,14 +7,15 @@ const getAllFoods = async (req, res) => {
 };
 
 const addFood = async (req, res) => {
-  const { name, description, price, image, restaurantId } = req.body;
+  const { name, description, price, restaurantId } = req.body;
+  const imageUrl = req.file?.path;
   try {
     const newFood = await prisma.food.create({
       data: {
         name,
         description,
         price: parseFloat(price),
-        image,
+        image: imageUrl,
         restaurantId: parseInt(restaurantId),
       },
     });
